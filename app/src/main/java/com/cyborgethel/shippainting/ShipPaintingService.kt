@@ -11,6 +11,7 @@ import androidx.preference.PreferenceManager
 import com.cyborgethel.shippainting.AnimatedObject.AnimOffset
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.math.log10
 
 class ShipPaintingService : WallpaperService() {
     private val handler = Handler()
@@ -359,11 +360,15 @@ class ShipPaintingService : WallpaperService() {
     }
 
     private fun fader(ratio: Float) : (Float) -> Float = { tick: Float ->
-            if (!dayNight) 1f else boringCurve(distanceFromMidnight()) * ratio + 1f - ratio
+            if (!dayNight) 1f else logCurve(distanceFromMidnight()) * ratio + 1f - ratio
     }
 
     private fun boringCurve(x: Float): Float {
         return x
+    }
+
+    private fun logCurve(x: Float): Float {
+        return log10(x + 0.1f) + 0.95f
     }
 
     companion object {
