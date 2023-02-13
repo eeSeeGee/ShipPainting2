@@ -3,18 +3,24 @@ package com.cyborgethel.shippainting
 import android.content.res.Resources
 import android.graphics.*
 import android.os.Handler
+import android.os.Looper
+import android.os.Message
 import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.preference.PreferenceManager
 import com.cyborgethel.shippainting.AnimatedObject.AnimOffset
-import java.util.*
+import java.lang.ref.WeakReference
+import java.util.Calendar
 import kotlin.collections.ArrayList
 import kotlin.math.log10
 
 class ShipPaintingService : WallpaperService() {
-    private val handler = Handler()
+    private val animHandler = AnimHandler(this)
+    @Volatile private var newSurfaceLimits: SurfaceLimits? = null
+    private var currentSurfaceLimits: SurfaceLimits? = null
+
     private var animatedObjects: ArrayList<AnimatedObject> = ArrayList()
     var shipBackground: Bitmap? = null
     private var offset = 0f
@@ -32,13 +38,37 @@ class ShipPaintingService : WallpaperService() {
     }
 
     internal inner class ShipEngine : Engine() {
+        private val shipAnimRunnable = Runnable {
+            run {
+                Handler(mainLooper).post {
+                    run {
+                        drawFrame()
+                    }
+                }
+            }
+        }
+
+        fun scheduleRedraw() {
+            cancelRedraw()
+            animHandler.post(shipAnimRunnable)
+        }
+
+        fun scheduleRedrawLater() {
+            cancelRedraw()
+            animHandler.postDelayed(shipAnimRunnable, (1000/25).toLong())
+        }
+
+        fun cancelRedraw() {
+            animHandler.removeCallbacks(shipAnimRunnable)
+        }
+
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
         }
 
         override fun onDestroy() {
             super.onDestroy()
-            handler.removeCallbacks(drawShipRunnable)
+            cancelRedraw()
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
@@ -50,9 +80,7 @@ class ShipPaintingService : WallpaperService() {
             fixedTime = prefs.getInt("time_of_day", 0)
 
             if (visible) {
-                drawFrame()
-            } else {
-                handler.removeCallbacks(drawShipRunnable)
+                scheduleRedraw()
             }
         }
 
@@ -62,6 +90,12 @@ class ShipPaintingService : WallpaperService() {
         ) {
             super.onSurfaceChanged(holder, format, width, height)
             Log.i("onSurfaceChanged", String.format("size: w:%d h:%d", width, height))
+
+            newSurfaceLimits = SurfaceLimits(width, height)
+            scheduleRedraw()
+        }
+
+        private fun calculateDrawableSurfaces(width: Int, height: Int) {
             val options = BitmapFactory.Options()
             options.inJustDecodeBounds = true
             BitmapFactory.decodeResource(
@@ -83,7 +117,7 @@ class ShipPaintingService : WallpaperService() {
                 (scale * imageHeight.toFloat()).toInt()
             )
             Log.i(
-                "onSurfaceChanged", String.format(
+                "calculateDrawableSurfaces", String.format(
                     "bg size: w:%d h:%d",
                     shipBackground!!.width, shipBackground!!.height
                 )
@@ -183,7 +217,6 @@ class ShipPaintingService : WallpaperService() {
                     WaveAnimator(wave.width, wave.height), fader(MEDIUM_RATIO)
                 )
             )
-            drawFrame()
         }
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
@@ -193,7 +226,6 @@ class ShipPaintingService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             visible = false
-            handler.removeCallbacks(drawShipRunnable)
         }
 
         override fun onOffsetsChanged(
@@ -202,10 +234,20 @@ class ShipPaintingService : WallpaperService() {
         ) {
             // Log.i("Ship", "Offset:" + xOffset);
             offset = xOffset
-            drawFrame()
+            scheduleRedraw()
         }
 
         fun drawFrame() {
+            if (!visible) {
+                return
+            }
+
+            val sl = newSurfaceLimits.also { newSurfaceLimits = null }
+            if (sl != null && currentSurfaceLimits != sl) {
+                currentSurfaceLimits = sl
+                calculateDrawableSurfaces(sl.width, sl.height)
+            }
+
             val holder = surfaceHolder
             var c: Canvas? = null
             try {
@@ -241,13 +283,10 @@ class ShipPaintingService : WallpaperService() {
             } finally {
                 if (c != null) holder.unlockCanvasAndPost(c)
             }
-            handler.removeCallbacks(drawShipRunnable)
             if (visible) {
-                handler.postDelayed(drawShipRunnable, (1000 / 25).toLong())
+                scheduleRedrawLater()
             }
         }
-
-        private val drawShipRunnable = Runnable { drawFrame() }
 
         private inner class ShipAnimator     // _w = w;
             (
@@ -345,30 +384,30 @@ class ShipPaintingService : WallpaperService() {
             options.inJustDecodeBounds = false
             return BitmapFactory.decodeResource(res, resId, options)
         }
-    }
 
-    private fun distanceFromMidnight(): Float {
-        var now = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) * 60 + Calendar.getInstance().get(Calendar.MINUTE)
-        if (fixTime) {
-            now = fixedTime * 60
+        private fun distanceFromMidnight(): Float {
+            var now = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) * 60 + Calendar.getInstance().get(Calendar.MINUTE)
+            if (fixTime) {
+                now = fixedTime * 60
+            }
+            val noon = 12 * 60
+            if (now > noon) {
+                return Math.abs((now - 2 * noon).toFloat() / noon.toFloat())
+            }
+            return now.toFloat() / noon.toFloat()
         }
-        val noon = 12 * 60
-        if (now > noon) {
-            return Math.abs((now - 2 * noon).toFloat() / noon.toFloat())
-        }
-        return now.toFloat() / noon.toFloat()
-    }
 
-    private fun fader(ratio: Float) : (Float) -> Float = { tick: Float ->
+        private fun fader(ratio: Float) : (Float) -> Float = { tick: Float ->
             if (!dayNight) 1f else logCurve(distanceFromMidnight()) * ratio + 1f - ratio
-    }
+        }
 
-    private fun boringCurve(x: Float): Float {
-        return x
-    }
+        private fun boringCurve(x: Float): Float {
+            return x
+        }
 
-    private fun logCurve(x: Float): Float {
-        return log10(x + 0.1f) + 0.95f
+        private fun logCurve(x: Float): Float {
+            return log10(x + 0.1f) + 0.95f
+        }
     }
 
     companion object {
@@ -387,5 +426,17 @@ class ShipPaintingService : WallpaperService() {
         private const val DARK_RATIO = 0.96f
         private const val MEDIUM_RATIO = 0.8f
         private const val LIGHT_RATIO = 0.65f
+
+        internal class AnimHandler(service: WallpaperService): Handler(Looper.myLooper()!!) {
+            private val myService: WeakReference<WallpaperService> = WeakReference(service)
+
+            override fun handleMessage(msg: Message) {
+                val service = myService.get()
+                service?: return
+                super.handleMessage(msg)
+            }
+        }
     }
 }
+
+data class SurfaceLimits( val width: Int, val height: Int )
