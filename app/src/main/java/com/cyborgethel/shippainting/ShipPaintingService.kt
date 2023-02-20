@@ -1,7 +1,13 @@
 package com.cyborgethel.shippainting
 
 import android.content.res.Resources
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
@@ -10,7 +16,6 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.preference.PreferenceManager
-import com.cyborgethel.shippainting.AnimatedObject.AnimOffset
 import java.lang.ref.WeakReference
 import java.util.Calendar
 import kotlin.collections.ArrayList
@@ -23,11 +28,10 @@ class ShipPaintingService : WallpaperService() {
 
     private var animatedObjects: ArrayList<AnimatedObject> = ArrayList()
     var shipBackground: Bitmap? = null
-    private var offset = 0f
     private var vx = 0f
     private var vy = 0f
-    private var startx = 0
-    private var starty = 0
+    private var midx = 0
+    private var midy = 0
     private var visible = false
     private var dayNight = true
     private var fixTime = false
@@ -48,6 +52,10 @@ class ShipPaintingService : WallpaperService() {
             }
         }
 
+        private var totalDrawTime = 0L
+        private var totalBgDrawTime = 0L
+        private var framesCycled = 0
+
         fun scheduleRedraw() {
             cancelRedraw()
             animHandler.post(shipAnimRunnable)
@@ -55,7 +63,7 @@ class ShipPaintingService : WallpaperService() {
 
         fun scheduleRedrawLater() {
             cancelRedraw()
-            animHandler.postDelayed(shipAnimRunnable, (1000/25).toLong())
+            animHandler.postDelayed(shipAnimRunnable, MS_BETWEEN_FRAMES.toLong())
         }
 
         fun cancelRedraw() {
@@ -96,12 +104,15 @@ class ShipPaintingService : WallpaperService() {
         }
 
         private fun calculateDrawableSurfaces(width: Int, height: Int) {
+            val startTime = System.currentTimeMillis()
+
             val options = BitmapFactory.Options()
             options.inJustDecodeBounds = true
             BitmapFactory.decodeResource(
                 resources,
-                R.drawable.shipbg, options
+                R.drawable.sky, options
             )
+
             val imageHeight = options.outHeight
             val imageWidth = options.outWidth
             val xScale = width.toFloat() / imageWidth.toFloat()
@@ -112,7 +123,8 @@ class ShipPaintingService : WallpaperService() {
             }
             shipBackground = decodeSampledBitmapFromResource(
                 resources,
-                R.drawable.shipbg,
+                R.drawable.sky,
+                null,
                 (scale * imageWidth.toFloat()).toInt(),
                 (scale * imageHeight.toFloat()).toInt()
             )
@@ -122,101 +134,57 @@ class ShipPaintingService : WallpaperService() {
                     shipBackground!!.width, shipBackground!!.height
                 )
             )
-            startx = (width - shipBackground!!.width) / 2
-            starty = (height - shipBackground!!.height) / 2
-            BitmapFactory.decodeResource(
-                resources,
-                R.drawable.ship, options
-            )
+            midx = shipBackground!!.width / 2
+            midy = shipBackground!!.height / 2
+
+            val viewRect = ViewRect(width, height, midx - width / 2, midy - height / 2)
+
             val ship = decodeSampledBitmapFromResource(
-                resources,
-                R.drawable.ship,
-                (scale * options.outWidth).toInt(),
-                (scale * options.outHeight).toInt()
-            )
-            BitmapFactory.decodeResource(
-                resources,
-                R.drawable.wave, options
-            )
-            val wave = decodeSampledBitmapFromResource(
-                resources,
-                R.drawable.wave,
-                (scale * options.outWidth).toInt(),
-                (scale * options.outHeight).toInt()
-            )
-            BitmapFactory.decodeResource(
-                resources,
-                R.drawable.wavetop, options
-            )
-            val wavetop = decodeSampledBitmapFromResource(
-                resources,
-                R.drawable.wavetop,
-                (scale * options.outWidth).toInt(),
-                (scale * options.outHeight).toInt()
-            )
-            BitmapFactory.decodeResource(
-                resources,
-                R.drawable.cloud1, options
-            )
-            val cloud1 = decodeSampledBitmapFromResource(
-                resources,
-                R.drawable.cloud1,
-                (scale * options.outWidth).toInt(),
-                (scale * options.outHeight).toInt()
-            )
-            BitmapFactory.decodeResource(
-                resources,
-                R.drawable.cloud2, options
-            )
-            val cloud2 = decodeSampledBitmapFromResource(
-                resources,
-                R.drawable.cloud2,
-                (scale * options.outWidth).toInt(),
-                (scale * options.outHeight).toInt()
-            )
+                resources, R.drawable.ship, scale, 0, 0)
+
+            val sea = decodeSampledBitmapFromResource(
+                resources, R.drawable.sea, scale, 0, 0)
+
+            val clouds = decodeSampledBitmapFromResource(
+                resources, R.drawable.clouds, scale, 0, 0)
+
+            Log.i("calculateDrawableSurfaces", String.format("Loaded resources in %d", System.currentTimeMillis() - startTime))
+
             vx = shipBackground!!.width.toFloat()
             vy = shipBackground!!.height.toFloat()
             animatedObjects = ArrayList()
             val cl1 = ArrayList<Bitmap>()
-            cl1.add(cloud1)
+            cl1.add(clouds)
             animatedObjects.add(
                 AnimatedObject(
-                    cl1, CLOUD1X, CLOUD1Y, vx, vy,
-                    CloudAnimator(cloud1.width, cloud1.height), fader(MEDIUM_RATIO)
+                    cl1, ViewRect(clouds.width, clouds.height,
+                        (CLOUD1X*scale).toInt(), (CLOUD1Y*scale).toInt()),
+                    viewRect, CloudAnimator(clouds.width, clouds.height), fader(MEDIUM_RATIO)
                 )
             )
-            val cl2 = ArrayList<Bitmap>()
-            cl2.add(cloud1)
-            animatedObjects.add(
-                AnimatedObject(
-                    cl2, CLOUD2X, CLOUD2Y, vx, vy,
-                    CloudAnimator(cloud2.width, cloud2.height), fader(MEDIUM_RATIO)
-                )
-            )
-            val w2 = ArrayList<Bitmap>()
-            w2.add(wavetop)
-            animatedObjects.add(
-                AnimatedObject(
-                    w2, WAVETOPX, WAVETOPY, vx, vy,
-                    WaveAnimator(wavetop.width, wavetop.height), fader(MEDIUM_RATIO)
-                )
-            )
+
             val sl = ArrayList<Bitmap>()
             sl.add(ship)
             animatedObjects.add(
                 AnimatedObject(
-                    sl, SHIPX, SHIPY, vx, vy,
-                    ShipAnimator(ship.width, ship.height), fader(LIGHT_RATIO)
+                    sl, ViewRect(ship.width, ship.height,
+                        (SHIPX*scale).toInt(), (SHIPY*scale).toInt()),
+                    viewRect, ShipAnimator(ship.width, ship.height), fader(LIGHT_RATIO)
                 )
             )
+
             val wl = ArrayList<Bitmap>()
-            wl.add(wave)
+            wl.add(sea)
             animatedObjects.add(
                 AnimatedObject(
-                    wl, WAVEX, WAVEY, vx, vy,
-                    WaveAnimator(wave.width, wave.height), fader(MEDIUM_RATIO)
+                    wl, ViewRect(sea.width, sea.height,
+                        (WAVEX*scale).toInt(), (WAVEY*scale).toInt()),
+                    viewRect, null /*WaveAnimator(sea.width, sea.height)*/, fader(MEDIUM_RATIO)
                 )
             )
+
+            val doneTime = System.currentTimeMillis()
+            Log.i("calculateDrawableSurfaces", String.format("Calculated drawable surfaces in %d", doneTime - startTime))
         }
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
@@ -226,15 +194,6 @@ class ShipPaintingService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             visible = false
-        }
-
-        override fun onOffsetsChanged(
-            xOffset: Float, yOffset: Float, xStep: Float,
-            yStep: Float, xPixels: Int, yPixels: Int
-        ) {
-            // Log.i("Ship", "Offset:" + xOffset);
-            offset = xOffset
-            scheduleRedraw()
         }
 
         fun drawFrame() {
@@ -247,6 +206,8 @@ class ShipPaintingService : WallpaperService() {
                 currentSurfaceLimits = sl
                 calculateDrawableSurfaces(sl.width, sl.height)
             }
+
+            val startTime = System.currentTimeMillis()
 
             val holder = surfaceHolder
             var c: Canvas? = null
@@ -266,123 +227,62 @@ class ShipPaintingService : WallpaperService() {
                     c.drawBitmap(
                         shipBackground!!,
                         Rect(
-                            startx, starty,
-                            shipBackground!!.width, shipBackground!!.height
+                            midx - c.width / 2, midy - c.height / 2,
+                            midx + c.width / 2, midy + c.height / 2
                         ),
                         Rect(
-                            startx, starty,
-                            shipBackground!!.width, shipBackground!!.height
+                            0, 0,
+                            c.width, c.height
                         ),
                         paint
                     )
 
+                    totalBgDrawTime += System.currentTimeMillis() - startTime
+
                     for (i in animatedObjects.indices) {
-                        animatedObjects[i].draw(c, startx, starty, tick)
+                        animatedObjects[i].draw(c, tick)
                     }
                 }
             } finally {
                 if (c != null) holder.unlockCanvasAndPost(c)
+                totalDrawTime += System.currentTimeMillis() - startTime
+                if (++framesCycled == 25) {
+                    Log.i(
+                        "drawFrame",
+                        String.format("Avg draw bg time: %d", totalBgDrawTime / framesCycled)
+                    )
+                    Log.i("drawFrame", String.format("Avg drew frame time: %d", totalDrawTime / framesCycled))
+                    totalBgDrawTime = 0
+                    totalDrawTime = 0
+                    framesCycled = 0
+                }
+
             }
             if (visible) {
                 scheduleRedrawLater()
             }
         }
 
-        private inner class ShipAnimator     // _w = w;
-            (
-            w: Int, // int _w;
-            var _h: Int
-        ) : AnimOffset {
-            override fun getX(tick: Float): Int {
-                return 0
-            }
-
-            override fun getY(tick: Float): Int {
-                val highness = 0.025f * _h
-                return (2 * highness).toInt() + (Math.sin(tick * MAXRAD) * highness / 3f).toInt()
-            }
-        }
-
-        private inner class WaveAnimator(var _w: Int, var _h: Int) : AnimOffset {
-            override fun getX(tick: Float): Int {
-                val wideness = 0.01f * _w
-                return (Math.sin(tick * MAXRAD) * wideness).toInt()
-            }
-
-            override fun getY(tick: Float): Int {
-                val highness = 0.015f * _h
-                return (highness / 2f).toInt() + (Math.sin(2 * tick * MAXRAD) * highness / 3f).toInt()
-            }
-        }
-
-        private inner class CloudAnimator(
-            var w: Int, h: Int
-        ) : AnimOffset {
-            override fun getX(tick: Float): Int {
-                return ((offset - 0.5f) * w).toInt()
-            }
-
-            override fun getY(tick: Float): Int {
-                return 0
-            }
-        }
-
-        private fun calculateInSampleSize(
-            options: BitmapFactory.Options,
-            reqWidth: Int, reqHeight: Int
-        ): Int {
-            // Raw height and width of image
-            val height = options.outHeight
-            val width = options.outWidth
-            var inSampleSize = 1
-            if (height > reqHeight || width > reqWidth) {
-                val halfHeight = height / 2
-                val halfWidth = width / 2
-
-                // Calculate the largest inSampleSize value that is a power of 2
-                // and keeps both
-                // height and width larger than the requested height and width.
-                while (halfHeight / inSampleSize > reqHeight
-                    && halfWidth / inSampleSize > reqWidth
-                ) {
-                    inSampleSize *= 2
-                }
-            } else if (height < reqHeight || width < reqWidth) {
-                return -1
-            }
-            return inSampleSize
-        }
-
         private fun decodeSampledBitmapFromResource(
-            res: Resources, resId: Int, reqWidth: Int, reqHeight: Int
+            res: Resources, resId: Int, scale: Float?, reqWidth: Int, reqHeight: Int
         ): Bitmap {
             Log.i(
                 "decodeSampledBitmapFromResource", String.format(
-                    "sizing image to w:%d h:%d",
-                    reqWidth, reqHeight
+                    "%s: sizing image to scale: %f w:%d h:%d",
+                    Calendar.getInstance().time, scale, reqWidth, reqHeight
                 )
             )
 
-            // First decode with inJustDecodeBounds=true to check dimensions
-            val options = BitmapFactory.Options()
-            options.inJustDecodeBounds = true
-            BitmapFactory.decodeResource(res, resId, options)
-
-            // Calculate inSampleSize
-            options.inSampleSize = calculateInSampleSize(
-                options, reqWidth,
-                reqHeight
-            )
-            if (options.inSampleSize == -1) {
-                return Bitmap.createScaledBitmap(
-                    BitmapFactory.decodeResource(resources, resId),
-                    reqWidth, reqHeight, false
-                )
+            var rw = reqWidth
+            var rh = reqHeight
+            val opts = BitmapFactory.Options()
+            val bitmap = BitmapFactory.decodeResource(resources, resId, opts)
+            if (scale != null) {
+                rw = (scale * opts.outWidth).toInt()
+                rh = (scale * opts.outHeight).toInt()
             }
 
-            // Decode bitmap with inSampleSize set
-            options.inJustDecodeBounds = false
-            return BitmapFactory.decodeResource(res, resId, options)
+            return Bitmap.createScaledBitmap(bitmap, rw, rh, false)
         }
 
         private fun distanceFromMidnight(): Float {
@@ -411,17 +311,16 @@ class ShipPaintingService : WallpaperService() {
     }
 
     companion object {
-        private const val SHIPX = 0.37f
-        private const val SHIPY = 0.055f
-        private const val WAVETOPX = -0.2f
-        private const val WAVETOPY = 0.64f
-        private const val WAVEX = -0.5f
-        private const val WAVEY = 0.627f
-        private const val CLOUD1X = 0.131f
-        private const val CLOUD1Y = 0.136f
-        private const val CLOUD2X = 0.666f
-        private const val CLOUD2Y = 0.254f
-        private val MAXRAD = Math.toRadians(360.0)
+        val MAXRAD = Math.toRadians(360.0)
+
+        private const val MS_BETWEEN_FRAMES = 1000 / 25
+
+        private const val SHIPX = 1080f
+        private const val SHIPY = 120f
+        private const val WAVEX = 0f
+        private const val WAVEY = 1396f
+        private const val CLOUD1X = 0f
+        private const val CLOUD1Y = 0f
 
         private const val DARK_RATIO = 0.96f
         private const val MEDIUM_RATIO = 0.8f
@@ -440,3 +339,5 @@ class ShipPaintingService : WallpaperService() {
 }
 
 data class SurfaceLimits( val width: Int, val height: Int )
+
+data class ViewRect( val width: Int, val height: Int, val xoff: Int, val yoff: Int)
