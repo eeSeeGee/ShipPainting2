@@ -10,27 +10,30 @@ import kotlin.math.max
 import kotlin.math.min
 
 class AnimatedObject(
-    var _img: ArrayList<Bitmap>, dimRect: ViewRect, viewRect: ViewRect, offset: AnimOffset?, satMod: (tick: Float) -> Float = { 1f }
+    var bitmaps: ArrayList<Bitmap>, dimRect: ViewRect, viewRect: ViewRect, offset: AnimOffset?,
+    satMod: (tick: Float) -> Float = { 1f }
 ) {
-    private val _offset: AnimOffset?
+    private val animOffset: AnimOffset?
     private val dimRect: ViewRect
     private val viewRect: ViewRect
     private val satMod: (tick: Float) -> Float
 
     init {
-        _offset = offset
+        animOffset = offset
         this.dimRect = dimRect
         this.viewRect = viewRect
         this.satMod = satMod
     }
 
     fun draw(c: Canvas, tick: Float) {
-        var frame = (tick * _img.size).toInt()
-        if (frame >= _img.size) {
-            frame = _img.size - 1
+        var frame = (tick * bitmaps.size).toInt()
+        if (frame >= bitmaps.size) {
+            frame = bitmaps.size - 1
         }
-        val srcOver = overlap(dimRect, viewRect, _offset?.getX(tick) ?: 0,_offset?.getY(tick) ?: 0)?: return
-        val dstOver = overlap(viewRect, dimRect, 0, 0)?: return
+        val modDimRect = ViewRect(dimRect.width, dimRect.height,
+            dimRect.xoff + (animOffset?.getX(tick) ?: 0), dimRect.yoff + (animOffset?.getY(tick) ?: 0))
+        val srcOver = overlap(modDimRect, viewRect, 0,0)?: return
+        val dstOver = overlap(viewRect, modDimRect, 0, 0)?: return
 
         val colorMatrix = ColorMatrix()
         val satVal = satMod(tick)
@@ -40,7 +43,7 @@ class AnimatedObject(
         val paint = Paint()
         paint.colorFilter = colorMatrixColorFilter
 
-        c.drawBitmap(_img[frame],
+        c.drawBitmap(bitmaps[frame],
             srcOver,
             dstOver, paint)
     }

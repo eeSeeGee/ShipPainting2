@@ -8,10 +8,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
-import android.os.Handler
-import android.os.Looper
-import android.os.Message
-import android.os.SystemClock
+import android.os.*
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
@@ -122,7 +119,6 @@ class ShipPaintingService : WallpaperService() {
                 scale = yScale
             }
             shipBackground = decodeSampledBitmapFromResource(
-                resources,
                 R.drawable.sky,
                 null,
                 (scale * imageWidth.toFloat()).toInt(),
@@ -139,45 +135,74 @@ class ShipPaintingService : WallpaperService() {
 
             val viewRect = ViewRect(width, height, midx - width / 2, midy - height / 2)
 
-            val ship = decodeSampledBitmapFromResource(
-                resources, R.drawable.ship, scale, 0, 0)
-
-            val sea = decodeSampledBitmapFromResource(
-                resources, R.drawable.sea, scale, 0, 0)
-
-            val clouds = decodeSampledBitmapFromResource(
-                resources, R.drawable.clouds, scale, 0, 0)
+            val bird1 = decodeSampledBitmapFromResource(R.drawable.bird1, scale)
+            val bird2 = decodeSampledBitmapFromResource(R.drawable.bird2, scale)
+            val bird3 = decodeSampledBitmapFromResource(R.drawable.bird3, scale)
+            val ship = decodeSampledBitmapFromResource(R.drawable.ship, scale)
+            val sea = decodeSampledBitmapFromResource(R.drawable.sea, scale)
+            val clouds = decodeSampledBitmapFromResource(R.drawable.clouds, scale)
 
             Log.i("calculateDrawableSurfaces", String.format("Loaded resources in %d", System.currentTimeMillis() - startTime))
 
             vx = shipBackground!!.width.toFloat()
             vy = shipBackground!!.height.toFloat()
             animatedObjects = ArrayList()
-            val cl1 = ArrayList<Bitmap>()
-            cl1.add(clouds)
-            animatedObjects.add(
-                AnimatedObject(
-                    cl1, ViewRect(clouds.width, clouds.height,
-                        (CLOUD1X*scale).toInt(), (CLOUD1Y*scale).toInt()),
-                    viewRect, CloudAnimator(clouds.width, clouds.height), fader(MEDIUM_RATIO)
+            val cl1 = arrayListOf(clouds)
+            animatedObjects.addAll(
+                listOf(
+                    AnimatedObject(
+                        cl1, ViewRect(clouds.width, clouds.height,
+                            (CLOUD1X*scale).toInt(), (CLOUD1Y*scale).toInt()),
+                        viewRect, CloudAnimator((clouds.width.toFloat()*scale).toInt()), fader(MEDIUM_RATIO)
+                    ),
+                    AnimatedObject(
+                        cl1, ViewRect(clouds.width, clouds.height,
+                            ((CLOUD1X - shipBackground!!.width)*scale).toInt(), (CLOUD1Y*scale).toInt()),
+                        viewRect, CloudAnimator((clouds.width.toFloat()*scale).toInt()), fader(MEDIUM_RATIO)
+                    ),
+                    AnimatedObject(
+                        cl1, ViewRect(clouds.width, clouds.height,
+                            ((CLOUD1X - 2 * shipBackground!!.width)*scale).toInt(), (CLOUD1Y*scale).toInt()),
+                        viewRect, CloudAnimator((clouds.width.toFloat()*scale).toInt()), fader(MEDIUM_RATIO)
+                    )
                 )
             )
 
-            val sl = ArrayList<Bitmap>()
-            sl.add(ship)
             animatedObjects.add(
                 AnimatedObject(
-                    sl, ViewRect(ship.width, ship.height,
+                    arrayListOf(bird1), ViewRect(bird1.width, bird1.height,
+                        (BIRD1X*scale).toInt(), (BIRD1Y*scale).toInt()),
+                    viewRect, BirdAnimator(bird1.width, bird1.height, 0.1f), fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(bird2), ViewRect(bird2.width, bird2.height,
+                        (BIRD2X*scale).toInt(), (BIRD2Y*scale).toInt()),
+                    viewRect, BirdAnimator(bird2.width, bird2.height, 0.3f), fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(bird3), ViewRect(bird3.width, bird3.height,
+                        (BIRD3X*scale).toInt(), (BIRD3Y*scale).toInt()),
+                    viewRect, BirdAnimator(bird3.width, bird3.height, 0.7f), fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(ship), ViewRect(ship.width, ship.height,
                         (SHIPX*scale).toInt(), (SHIPY*scale).toInt()),
                     viewRect, ShipAnimator(ship.width, ship.height), fader(LIGHT_RATIO)
                 )
             )
 
-            val wl = ArrayList<Bitmap>()
-            wl.add(sea)
             animatedObjects.add(
                 AnimatedObject(
-                    wl, ViewRect(sea.width, sea.height,
+                    arrayListOf(sea), ViewRect(sea.width, sea.height,
                         (WAVEX*scale).toInt(), (WAVEY*scale).toInt()),
                     viewRect, null /*WaveAnimator(sea.width, sea.height)*/, fader(MEDIUM_RATIO)
                 )
@@ -212,9 +237,9 @@ class ShipPaintingService : WallpaperService() {
             val holder = surfaceHolder
             var c: Canvas? = null
             try {
-                c = holder.lockCanvas()
+                c = holder.lockHardwareCanvas()
                 if (c != null) {
-                    val tick = (SystemClock.elapsedRealtime() % 5000).toFloat() / 5000f
+                    val tick = (SystemClock.elapsedRealtime() % MAX_TICKS).toFloat() / MAX_TICKS.toFloat()
 
                     val colorMatrix = ColorMatrix()
                     val satVal = fader(DARK_RATIO)(tick)
@@ -246,11 +271,13 @@ class ShipPaintingService : WallpaperService() {
             } finally {
                 if (c != null) holder.unlockCanvasAndPost(c)
                 totalDrawTime += System.currentTimeMillis() - startTime
-                if (++framesCycled == 25) {
+                if (++framesCycled == 120) {
+                    /*
                     Log.i(
                         "drawFrame",
                         String.format("Avg draw bg time: %d", totalBgDrawTime / framesCycled)
                     )
+                     */
                     Log.i("drawFrame", String.format("Avg drew frame time: %d", totalDrawTime / framesCycled))
                     totalBgDrawTime = 0
                     totalDrawTime = 0
@@ -264,7 +291,7 @@ class ShipPaintingService : WallpaperService() {
         }
 
         private fun decodeSampledBitmapFromResource(
-            res: Resources, resId: Int, scale: Float?, reqWidth: Int, reqHeight: Int
+            resId: Int, scale: Float?, reqWidth: Int = 0, reqHeight: Int = 0
         ): Bitmap {
             Log.i(
                 "decodeSampledBitmapFromResource", String.format(
@@ -276,6 +303,7 @@ class ShipPaintingService : WallpaperService() {
             var rw = reqWidth
             var rh = reqHeight
             val opts = BitmapFactory.Options()
+            opts.inPreferredConfig
             val bitmap = BitmapFactory.decodeResource(resources, resId, opts)
             if (scale != null) {
                 rw = (scale * opts.outWidth).toInt()
@@ -312,15 +340,22 @@ class ShipPaintingService : WallpaperService() {
 
     companion object {
         val MAXRAD = Math.toRadians(360.0)
+        const val MAX_TICKS = 1048576
 
-        private const val MS_BETWEEN_FRAMES = 1000 / 25
+        private const val MS_BETWEEN_FRAMES = 16
 
-        private const val SHIPX = 1080f
-        private const val SHIPY = 120f
+        private const val SHIPX = 1120f
+        private const val SHIPY = 40f
         private const val WAVEX = 0f
         private const val WAVEY = 1396f
         private const val CLOUD1X = 0f
         private const val CLOUD1Y = 0f
+        private const val BIRD1X = 40f
+        private const val BIRD1Y = 900f
+        private const val BIRD2X = 1200f
+        private const val BIRD2Y = 800f
+        private const val BIRD3X = 2700f
+        private const val BIRD3Y = 1100f
 
         private const val DARK_RATIO = 0.96f
         private const val MEDIUM_RATIO = 0.8f

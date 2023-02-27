@@ -8,6 +8,6 @@ class ShipAnimator(w: Int, var h: Int
 
     override fun getY(tick: Float): Int {
         val highness = 0.025f * h
-        return (2 * highness).toInt() + (Math.sin(tick * ShipPaintingService.MAXRAD) * highness / 3f).toInt()
+        return (2 * highness).toInt() + (Math.sin(tick * 256 * ShipPaintingService.MAXRAD) * highness / 3f).toInt()
     }
 }
