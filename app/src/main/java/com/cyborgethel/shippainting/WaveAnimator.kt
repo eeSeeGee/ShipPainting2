@@ -1,13 +1,18 @@
 package com.cyborgethel.shippainting
 
-class WaveAnimator(var w: Int, var h: Int) : AnimatedObject.AnimOffset {
+import kotlin.math.pow
+
+class WaveAnimator(var w: Int, var h: Int, var level: Int) : AnimatedObject.AnimOffset {
     override fun getX(tick: Float): Int {
-        val wideness = 0.01f * w
-        return (Math.sin(tick * ShipPaintingService.MAXRAD) * wideness).toInt()
+        var x = (w.toFloat() * tick * 8 / 2f.pow(level)).toInt()
+        while (x > w / 2) {
+            x -= w / 2
+        }
+        return x
     }
 
     override fun getY(tick: Float): Int {
-        val highness = 0.015f * h
-        return (highness / 2f).toInt() + (Math.sin(2 * tick * ShipPaintingService.MAXRAD) * highness / 3f).toInt()
+        val highness = 0.03f * h
+        return (highness / 2f).toInt() + (Math.sin(level * 4 * tick * ShipPaintingService.MAXRAD) * highness / 3f).toInt()
     }
 }

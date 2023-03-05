@@ -1,6 +1,5 @@
 package com.cyborgethel.shippainting
 
-import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -17,6 +16,7 @@ import java.lang.ref.WeakReference
 import java.util.Calendar
 import kotlin.collections.ArrayList
 import kotlin.math.log10
+import kotlin.math.max
 
 class ShipPaintingService : WallpaperService() {
     private val animHandler = AnimHandler(this)
@@ -58,9 +58,9 @@ class ShipPaintingService : WallpaperService() {
             animHandler.post(shipAnimRunnable)
         }
 
-        fun scheduleRedrawLater() {
+        fun scheduleRedrawLater(minusTimeMs: Long) {
             cancelRedraw()
-            animHandler.postDelayed(shipAnimRunnable, MS_BETWEEN_FRAMES.toLong())
+            animHandler.postDelayed(shipAnimRunnable, max(MS_BETWEEN_FRAMES.toLong() - minusTimeMs, 0))
         }
 
         fun cancelRedraw() {
@@ -139,7 +139,12 @@ class ShipPaintingService : WallpaperService() {
             val bird2 = decodeSampledBitmapFromResource(R.drawable.bird2, scale)
             val bird3 = decodeSampledBitmapFromResource(R.drawable.bird3, scale)
             val ship = decodeSampledBitmapFromResource(R.drawable.ship, scale)
-            val sea = decodeSampledBitmapFromResource(R.drawable.sea, scale)
+            val frontcrest = decodeSampledBitmapFromResource(R.drawable.maincrest, scale)
+            val rearcrest = decodeSampledBitmapFromResource(R.drawable.rearcrest, scale)
+            val wave1 = decodeSampledBitmapFromResource(R.drawable.backwave, scale)
+            val wave2 = decodeSampledBitmapFromResource(R.drawable.back2wave, scale)
+            val wave3 = decodeSampledBitmapFromResource(R.drawable.front2wave, scale)
+            val wave4 = decodeSampledBitmapFromResource(R.drawable.frontwave, scale)
             val clouds = decodeSampledBitmapFromResource(R.drawable.clouds, scale)
 
             Log.i("calculateDrawableSurfaces", String.format("Loaded resources in %d", System.currentTimeMillis() - startTime))
@@ -165,6 +170,22 @@ class ShipPaintingService : WallpaperService() {
                             ((CLOUD1X - 2 * shipBackground!!.width)*scale).toInt(), (CLOUD1Y*scale).toInt()),
                         viewRect, CloudAnimator((clouds.width.toFloat()*scale).toInt()), fader(MEDIUM_RATIO)
                     )
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(frontcrest), ViewRect(frontcrest.width, frontcrest.height,
+                        (FRONTCRESTX*scale).toInt(), (FRONTCRESTY*scale).toInt()),
+                    viewRect, null, fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(rearcrest), ViewRect(rearcrest.width, rearcrest.height,
+                        (REARCRESTX*scale).toInt(), (REARCRESTY*scale).toInt()),
+                    viewRect, null, fader(MEDIUM_RATIO)
                 )
             )
 
@@ -202,9 +223,33 @@ class ShipPaintingService : WallpaperService() {
 
             animatedObjects.add(
                 AnimatedObject(
-                    arrayListOf(sea), ViewRect(sea.width, sea.height,
-                        (WAVEX*scale).toInt(), (WAVEY*scale).toInt()),
-                    viewRect, null /*WaveAnimator(sea.width, sea.height)*/, fader(MEDIUM_RATIO)
+                    arrayListOf(wave1), ViewRect(wave1.width, wave1.height,
+                        (WAVE1X*scale).toInt(), (WAVE1Y*scale).toInt()),
+                    viewRect, WaveAnimator((wave1.width.toFloat()*scale).toInt(), (wave1.height.toFloat()*scale).toInt(), 4), fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(wave2), ViewRect(wave2.width, wave2.height,
+                        (WAVE2X*scale).toInt(), (WAVE2Y*scale).toInt()),
+                    viewRect, WaveAnimator((wave2.width.toFloat()*scale).toInt(), (wave2.height.toFloat()*scale).toInt(), 3), fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(wave3), ViewRect(wave3.width, wave3.height,
+                        (WAVE3X*scale).toInt(), (WAVE3Y*scale).toInt()),
+                    viewRect, WaveAnimator((wave3.width.toFloat()*scale).toInt(), (wave3.height.toFloat()*scale).toInt(), 2), fader(MEDIUM_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(wave4), ViewRect(wave4.width, wave4.height,
+                        (WAVE4X*scale).toInt(), (WAVE4Y*scale).toInt()),
+                    viewRect, WaveAnimator((wave4.width.toFloat()*scale).toInt(), (wave4.height.toFloat()*scale).toInt(), 1), fader(MEDIUM_RATIO)
                 )
             )
 
@@ -286,7 +331,7 @@ class ShipPaintingService : WallpaperService() {
 
             }
             if (visible) {
-                scheduleRedrawLater()
+                scheduleRedrawLater(System.currentTimeMillis() - startTime)
             }
         }
 
@@ -346,10 +391,24 @@ class ShipPaintingService : WallpaperService() {
 
         private const val SHIPX = 1120f
         private const val SHIPY = 40f
-        private const val WAVEX = 0f
-        private const val WAVEY = 1396f
+
+        private const val FRONTCRESTX = 0f
+        private const val FRONTCRESTY = 1300f
+        private const val REARCRESTX = 2200f
+        private const val REARCRESTY = 1100f
+
+        private const val WAVE1X = -3270f
+        private const val WAVE1Y = 1245f
+        private const val WAVE2X = -3270f
+        private const val WAVE2Y = 1245f
+        private const val WAVE3X = -3270f
+        private const val WAVE3Y = 1245f
+        private const val WAVE4X = -3270f
+        private const val WAVE4Y = 1245f
+
         private const val CLOUD1X = 0f
         private const val CLOUD1Y = 0f
+
         private const val BIRD1X = 40f
         private const val BIRD1Y = 900f
         private const val BIRD2X = 1200f
