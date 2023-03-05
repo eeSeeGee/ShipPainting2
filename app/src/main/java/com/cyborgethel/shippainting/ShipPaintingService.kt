@@ -12,6 +12,8 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.preference.PreferenceManager
+import kotlinx.coroutines.*
+import java.lang.Runnable
 import java.lang.ref.WeakReference
 import java.util.Calendar
 import kotlin.collections.ArrayList
@@ -100,7 +102,7 @@ class ShipPaintingService : WallpaperService() {
             scheduleRedraw()
         }
 
-        private fun calculateDrawableSurfaces(width: Int, height: Int) {
+        private fun calculateDrawableSurfaces(width: Int, height: Int) = runBlocking {
             val startTime = System.currentTimeMillis()
 
             val options = BitmapFactory.Options()
@@ -135,17 +137,40 @@ class ShipPaintingService : WallpaperService() {
 
             val viewRect = ViewRect(width, height, midx - width / 2, midy - height / 2)
 
-            val bird1 = decodeSampledBitmapFromResource(R.drawable.bird1, scale)
-            val bird2 = decodeSampledBitmapFromResource(R.drawable.bird2, scale)
-            val bird3 = decodeSampledBitmapFromResource(R.drawable.bird3, scale)
-            val ship = decodeSampledBitmapFromResource(R.drawable.ship, scale)
-            val frontcrest = decodeSampledBitmapFromResource(R.drawable.maincrest, scale)
-            val rearcrest = decodeSampledBitmapFromResource(R.drawable.rearcrest, scale)
-            val wave1 = decodeSampledBitmapFromResource(R.drawable.backwave, scale)
-            val wave2 = decodeSampledBitmapFromResource(R.drawable.back2wave, scale)
-            val wave3 = decodeSampledBitmapFromResource(R.drawable.front2wave, scale)
-            val wave4 = decodeSampledBitmapFromResource(R.drawable.frontwave, scale)
-            val clouds = decodeSampledBitmapFromResource(R.drawable.clouds, scale)
+            val resources = listOf(
+                R.drawable.bird1,
+                R.drawable.bird2,
+                R.drawable.bird3,
+                R.drawable.ship,
+                R.drawable.maincrest,
+                R.drawable.rearcrest,
+                R.drawable.backwave,
+                R.drawable.back2wave,
+                R.drawable.front2wave,
+                R.drawable.frontwave,
+                R.drawable.clouds
+            )
+
+            val jobs: List<Deferred<Bitmap>> = resources.map {
+                async(Dispatchers.IO) {
+                    decodeSampledBitmapFromResource(it, scale)
+                }
+            }
+            val results = jobs.awaitAll()
+
+            val bitmapMap = resources.zip(results).toMap()
+
+            val bird1 = bitmapMap.get(R.drawable.bird1)!!
+            val bird2 = bitmapMap.get(R.drawable.bird2)!!
+            val bird3 = bitmapMap.get(R.drawable.bird3)!!
+            val ship = bitmapMap.get(R.drawable.ship)!!
+            val frontcrest = bitmapMap.get(R.drawable.maincrest)!!
+            val rearcrest = bitmapMap.get(R.drawable.rearcrest)!!
+            val wave1 = bitmapMap.get(R.drawable.backwave)!!
+            val wave2 = bitmapMap.get(R.drawable.back2wave)!!
+            val wave3 = bitmapMap.get(R.drawable.front2wave)!!
+            val wave4 = bitmapMap.get(R.drawable.frontwave)!!
+            val clouds = bitmapMap.get(R.drawable.clouds)!!
 
             Log.i("calculateDrawableSurfaces", String.format("Loaded resources in %d", System.currentTimeMillis() - startTime))
 
@@ -335,7 +360,7 @@ class ShipPaintingService : WallpaperService() {
             }
         }
 
-        private fun decodeSampledBitmapFromResource(
+        private suspend fun decodeSampledBitmapFromResource(
             resId: Int, scale: Float?, reqWidth: Int = 0, reqHeight: Int = 0
         ): Bitmap {
             Log.i(
