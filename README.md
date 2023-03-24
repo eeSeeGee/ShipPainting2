@@ -1,0 +1,5 @@
+# Ship Painting
+
+This glitchy little wallpaper app comes from the background I had on my phone for a few years before I learned Android programming. The painting is one my grandfather made a long time ago and has been the background on every phone I've ever been able to customize. When I got my first Android 1.5 phone I had the idea of animating the photo, which was just intended to be a bit of bobbing and parallax scrolling. For a long time that's exactly what it did as I didn't have the time or inclination to get it beyond a whopping four FPS. For about 7 years I really only touched it to rebuild to be compliant with the latest and greatest OS, picking up such fanciness as "Gradle" and... well that's about it. Eventually it really really didn't work on my brand new Pixel 7, which was UNACCEPTABLE, so I embarked on a project of refurbishing it from the ground up, adding some of my original ideas and throwing a few more in there.
+
+Please feel free to play with it as you like, my grandpa would think that was a real hoot!
