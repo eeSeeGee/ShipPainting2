@@ -142,6 +142,15 @@ class ShipPaintingService : WallpaperService() {
                 R.drawable.bird2,
                 R.drawable.bird3,
                 R.drawable.ship,
+                R.drawable.flag1,
+                R.drawable.flag2,
+                R.drawable.flag3,
+                R.drawable.flag4,
+                R.drawable.flag5,
+                R.drawable.flag6,
+                R.drawable.flag7,
+                R.drawable.flag8,
+                R.drawable.flag9,
                 R.drawable.maincrest,
                 R.drawable.rearcrest,
                 R.drawable.backwave,
@@ -164,6 +173,15 @@ class ShipPaintingService : WallpaperService() {
             val bird2 = bitmapMap.get(R.drawable.bird2)!!
             val bird3 = bitmapMap.get(R.drawable.bird3)!!
             val ship = bitmapMap.get(R.drawable.ship)!!
+            val flag1 = bitmapMap.get(R.drawable.flag1)!!
+            val flag2 = bitmapMap.get(R.drawable.flag2)!!
+            val flag3 = bitmapMap.get(R.drawable.flag3)!!
+            val flag4 = bitmapMap.get(R.drawable.flag4)!!
+            val flag5 = bitmapMap.get(R.drawable.flag5)!!
+            val flag6 = bitmapMap.get(R.drawable.flag6)!!
+            val flag7 = bitmapMap.get(R.drawable.flag7)!!
+            val flag8 = bitmapMap.get(R.drawable.flag8)!!
+            val flag9 = bitmapMap.get(R.drawable.flag9)!!
             val frontcrest = bitmapMap.get(R.drawable.maincrest)!!
             val rearcrest = bitmapMap.get(R.drawable.rearcrest)!!
             val wave1 = bitmapMap.get(R.drawable.backwave)!!
@@ -243,6 +261,15 @@ class ShipPaintingService : WallpaperService() {
                     arrayListOf(ship), ViewRect(ship.width, ship.height,
                         (SHIPX*scale).toInt(), (SHIPY*scale).toInt()),
                     viewRect, ShipAnimator(ship.width, ship.height), fader(LIGHT_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(flag1, flag2, flag3, flag4, flag5, flag6, flag7, flag8, flag9),
+                    ViewRect(flag1.width, flag1.height,
+                        (FLAGX*scale).toInt(), (FLAGY*scale).toInt()),
+                    viewRect, FlagAnimator(flag1.width, flag1.height), fader(LIGHT_RATIO)
                 )
             )
 
@@ -411,11 +438,13 @@ class ShipPaintingService : WallpaperService() {
     companion object {
         val MAXRAD = Math.toRadians(360.0)
         const val MAX_TICKS = 1048576
-
-        private const val MS_BETWEEN_FRAMES = 16
+        const val MS_BETWEEN_FRAMES = 16
 
         private const val SHIPX = 1120f
         private const val SHIPY = 40f
+
+        private const val FLAGX = 1880f
+        private const val FLAGY = 245f
 
         private const val FRONTCRESTX = 0f
         private const val FRONTCRESTY = 1300f

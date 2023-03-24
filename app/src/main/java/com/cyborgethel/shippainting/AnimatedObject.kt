@@ -26,7 +26,9 @@ class AnimatedObject(
     }
 
     fun draw(c: Canvas, tick: Float) {
-        var frame = (tick * bitmaps.size).toInt()
+        // Yes this IS comically overcomplicated!
+        var frame = (tick * ShipPaintingService.MAX_TICKS
+                / (animOffset?.getFrameTime() ?: 1)).toInt() % bitmaps.size
         if (frame >= bitmaps.size) {
             frame = bitmaps.size - 1
         }
@@ -66,5 +68,7 @@ class AnimatedObject(
     interface AnimOffset {
         fun getX(tick: Float): Int
         fun getY(tick: Float): Int
+
+        fun getFrameTime(): Int = 1
     }
 }
