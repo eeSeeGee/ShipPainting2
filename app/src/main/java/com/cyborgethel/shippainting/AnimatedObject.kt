@@ -11,18 +11,20 @@ import kotlin.math.min
 
 class AnimatedObject(
     var bitmaps: ArrayList<Bitmap>, dimRect: ViewRect, viewRect: ViewRect, offset: AnimOffset?,
-    satMod: (tick: Float) -> Float = { 1f }
+    satMod: (tick: Float) -> Float = { 1f }, alphaMod: (tick: Float) -> Float = { 1f }
 ) {
     private val animOffset: AnimOffset?
     private val dimRect: ViewRect
     private val viewRect: ViewRect
     private val satMod: (tick: Float) -> Float
+    private val alphaMod: (tick: Float) -> Float
 
     init {
         animOffset = offset
         this.dimRect = dimRect
         this.viewRect = viewRect
         this.satMod = satMod
+        this.alphaMod = alphaMod
     }
 
     fun draw(c: Canvas, tick: Float) {
@@ -39,7 +41,7 @@ class AnimatedObject(
 
         val colorMatrix = ColorMatrix()
         val satVal = satMod(tick)
-        colorMatrix.setScale(satVal, satVal, satVal, 1f)
+        colorMatrix.setScale(satVal, satVal, satVal, alphaMod(tick))
 
         val colorMatrixColorFilter = ColorMatrixColorFilter(colorMatrix)
         val paint = Paint()

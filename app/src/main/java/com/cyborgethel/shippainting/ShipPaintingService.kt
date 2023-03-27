@@ -138,6 +138,7 @@ class ShipPaintingService : WallpaperService() {
             val viewRect = ViewRect(width, height, midx - width / 2, midy - height / 2)
 
             val resources = listOf(
+                R.drawable.stars,
                 R.drawable.bird1,
                 R.drawable.bird2,
                 R.drawable.bird3,
@@ -169,6 +170,7 @@ class ShipPaintingService : WallpaperService() {
 
             val bitmapMap = resources.zip(results).toMap()
 
+            val stars = bitmapMap.get(R.drawable.stars)!!
             val bird1 = bitmapMap.get(R.drawable.bird1)!!
             val bird2 = bitmapMap.get(R.drawable.bird2)!!
             val bird3 = bitmapMap.get(R.drawable.bird3)!!
@@ -195,6 +197,15 @@ class ShipPaintingService : WallpaperService() {
             vx = shipBackground!!.width.toFloat()
             vy = shipBackground!!.height.toFloat()
             animatedObjects = ArrayList()
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(stars), ViewRect(stars.width, stars.height,
+                        0, 0),
+                    viewRect, null, fader(LIGHT_RATIO), starFader()
+                )
+            )
+
             val cl1 = arrayListOf(clouds)
             animatedObjects.addAll(
                 listOf(
@@ -420,6 +431,10 @@ class ShipPaintingService : WallpaperService() {
                 return Math.abs((now - 2 * noon).toFloat() / noon.toFloat())
             }
             return now.toFloat() / noon.toFloat()
+        }
+
+        private fun starFader() : (Float) -> Float = { tick: Float ->
+            if (!dayNight || distanceFromMidnight() > 0.33f) 0f else 1f - distanceFromMidnight()
         }
 
         private fun fader(ratio: Float) : (Float) -> Float = { tick: Float ->
