@@ -1,12 +1,6 @@
 package com.cyborgethel.shippainting
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.*
 import android.os.*
 import android.service.wallpaper.WallpaperService
 import android.util.Log
@@ -15,8 +9,7 @@ import androidx.preference.PreferenceManager
 import kotlinx.coroutines.*
 import java.lang.Runnable
 import java.lang.ref.WeakReference
-import java.util.Calendar
-import kotlin.collections.ArrayList
+import java.util.*
 import kotlin.math.log10
 import kotlin.math.max
 
@@ -34,6 +27,7 @@ class ShipPaintingService : WallpaperService() {
     private var visible = false
     private var dayNight = true
     private var fixTime = false
+    private var debugInfo = false
     private var fixedTime = 0
 
     override fun onCreateEngine(): Engine {
@@ -85,6 +79,7 @@ class ShipPaintingService : WallpaperService() {
             dayNight = prefs.getBoolean("day_night", true)
             fixTime = prefs.getBoolean("fix_time", false)
             fixedTime = prefs.getInt("time_of_day", 0)
+            debugInfo = prefs.getBoolean("debug_info", false)
 
             if (visible) {
                 scheduleRedraw()
@@ -375,6 +370,24 @@ class ShipPaintingService : WallpaperService() {
                     for (i in animatedObjects.indices) {
                         animatedObjects[i].draw(c, tick)
                     }
+
+                    if(debugInfo) {
+                        paint.color = Color.BLACK;
+                        paint.textSize = 50f;
+
+                        val buildDate = Date(BuildConfig.BUILD_TIMESTAMP)
+                        val msgs = listOf(
+                            "Build Date: " + buildDate,
+                            "Tick: " + tick,
+                            "Time From Midnight: " + distanceFromMidnight()
+                        )
+
+                        var y = 200f
+                        msgs.forEach {
+                            c.drawText(it, 20f, y, paint)
+                            y += 80f
+                        }
+                    }
                 }
             } finally {
                 if (c != null) holder.unlockCanvasAndPost(c)
@@ -463,8 +476,8 @@ class ShipPaintingService : WallpaperService() {
 
         private const val FRONTCRESTX = 0f
         private const val FRONTCRESTY = 1300f
-        private const val REARCRESTX = 2200f
-        private const val REARCRESTY = 1100f
+        private const val REARCRESTX = 0f
+        private const val REARCRESTY = 1300f
 
         private const val WAVE1X = -3270f
         private const val WAVE1Y = 1245f
