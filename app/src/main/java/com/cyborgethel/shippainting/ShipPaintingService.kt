@@ -147,6 +147,7 @@ class ShipPaintingService : WallpaperService() {
                 R.drawable.flag7,
                 R.drawable.flag8,
                 R.drawable.flag9,
+                R.drawable.lights,
                 R.drawable.maincrest,
                 R.drawable.rearcrest,
                 R.drawable.backwave,
@@ -179,6 +180,7 @@ class ShipPaintingService : WallpaperService() {
             val flag7 = bitmapMap.get(R.drawable.flag7)!!
             val flag8 = bitmapMap.get(R.drawable.flag8)!!
             val flag9 = bitmapMap.get(R.drawable.flag9)!!
+            val lights = bitmapMap.get(R.drawable.lights)!!
             val frontcrest = bitmapMap.get(R.drawable.maincrest)!!
             val rearcrest = bitmapMap.get(R.drawable.rearcrest)!!
             val wave1 = bitmapMap.get(R.drawable.backwave)!!
@@ -276,6 +278,14 @@ class ShipPaintingService : WallpaperService() {
                     ViewRect(flag1.width, flag1.height,
                         (FLAGX*scale).toInt(), (FLAGY*scale).toInt()),
                     viewRect, FlagAnimator(flag1.width, flag1.height), fader(LIGHT_RATIO)
+                )
+            )
+
+            animatedObjects.add(
+                AnimatedObject(
+                    arrayListOf(lights), ViewRect(lights.width, lights.height,
+                        (LIGHTSX*scale).toInt(), (LIGHTSY*scale).toInt()),
+                    viewRect, ShipAnimator(ship.width, ship.height), fader(LIGHT_RATIO), starFader()
                 )
             )
 
@@ -474,7 +484,7 @@ class ShipPaintingService : WallpaperService() {
         private const val FLAGX = 1880f
         private const val FLAGY = 245f
 
-        private const val FRONTCRESTX = 0f
+        private const val FRONTCRESTX = -3270f
         private const val FRONTCRESTY = 1300f
         private const val REARCRESTX = 0f
         private const val REARCRESTY = 1300f
@@ -497,6 +507,9 @@ class ShipPaintingService : WallpaperService() {
         private const val BIRD2Y = 800f
         private const val BIRD3X = 2700f
         private const val BIRD3Y = 1100f
+
+        private const val LIGHTSX = 1120f
+        private const val LIGHTSY = 1374f
 
         private const val DARK_RATIO = 0.96f
         private const val MEDIUM_RATIO = 0.8f
